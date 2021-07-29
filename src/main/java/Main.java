@@ -113,7 +113,6 @@ public class Main {
         final Document document = new Document();
         document.append("firstName", user.getFirstName());
         document.append("lastName", user.getLastName());
-        document.append("friend", user.toString());
         return document;
     }
 
