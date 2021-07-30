@@ -1,127 +1,103 @@
-import com.mongodb.*;
-import com.mongodb.client.FindIterable;
-import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import dao.AccountDao;
+import dao.UserDao;
+import model.Account;
 import model.User;
-import org.bson.Document;
+import utils.MongoUtil;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
+
 public class Main {
+    private AccountDao accountDao;
+    private UserDao userDao;
+
     public static void main(String[] args) {
-        /*MongoCredential credential = MongoCredential.createCredential(user, database, password.toCharArray());
-        MongoDatabase database = connect("aLevel", credential);*/
-
-        MongoDatabase database = connect("aLevel");
-
-        // CRUD / Create
-        createData(database);
-
-        // CRUD / Read
-        readAllData(database);
-
-        // CRUD / Update
-        //readOneData(database);
-        //updateData(database);
-        //readOneData(database);
-
-        // CRUD / Delete
-        //readAllData(database);
-        //deleteData(database);
-        //readAllData(database);
+        new Main().run();
     }
 
-    private static void createData(MongoDatabase database) {
-        final User user1 = new User("Bill", "Loney");
-        final User user2 = new User("Chip", "Munk");
-        final User user3 = new User("Forrest", "Green");
+    public void run() {
+        MongoDatabase db = MongoUtil.connect("alevel");
+        accountDao = new AccountDao(db);
+        userDao = new UserDao(db);
 
-        final Document document1 = mapperFrom(user1);
-        final Document document2 = mapperFrom(user2);
-        final Document document3 = mapperFrom(user3);
-
-        MongoCollection<Document> users = database.getCollection("users");
-        List<Document> documents = Arrays.asList(document1, document2, document3);
-        users.insertMany(documents);
+//        createUsers();
+//        createAccounts();
+//        bindAccounts();
+//        findByName();
+//        findByAge();
+//        findByCity();
+        findByAccounts();
     }
 
-    private static void readAllData(MongoDatabase database) {
-        MongoCollection<Document> users = database.getCollection("users");
-        FindIterable<Document> documents = users.find();
-        for (Document document : documents) {
-            System.out.println(document);
-        }
-        System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+    private void createUsers() {
+        final User user1 = new User("FN1", "LN1", (short) 1981, "Company 1", "City 1");
+        final User user2 = new User("FN2", "LN2", (short) 1934, "Company 2", "City 1");
+        final User user3 = new User("FN3", "LN3", (short) 1965, "Company 1", "City 2");
+        final User user4 = new User("FN4", "LN4", (short) 1995, "Company 2", "City 3");
+        userDao.insertMany(Arrays.asList(user1, user2, user3, user4));
     }
 
-    private static void readOneData(MongoDatabase database) {
-        final Document filter = new Document();
-        filter.append("firstName", "Bill");
-        MongoCollection<Document> users = database.getCollection("users");
-        FindIterable<Document> documents = users.find(filter);
-        for (Document document : documents) {
-            System.out.println(document);
-        }
-        System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+    private void createAccounts() {
+        final Account acc1 = new Account(1200.0f);
+        final Account acc2 = new Account(5400f);
+        final Account acc3 = new Account(32879f);
+        final Account acc4 = new Account(780.5f);
+        final Account acc5 = new Account(44.3f);
+        accountDao.insertMany(Arrays.asList(acc1, acc2, acc3, acc4, acc5));
     }
 
-    private static void updateData(MongoDatabase database) {
-        final Document filter = new Document();
-        filter.append("firstName", "Bill");
-        filter.append("lastName", "Bill");
+    private void bindAccounts() {
+        List<Account> accounts = accountDao.findAll();
+        List<User> users = userDao.findAll();
 
-        final Document newData = new Document();
-        newData.append("lastName", "Loney999");
+        Account acc1 = accounts.get(0);
+        Account acc2 = accounts.get(1);
+        Account acc3 = accounts.get(2);
+        Account acc4 = accounts.get(3);
+        Account acc5 = accounts.get(4);
 
-        final Document updateObject  = new Document();
-        updateObject.append("$set", newData);
+        User u1 = users.get(0);
+        User u2 = users.get(1);
+        User u3 = users.get(3);
 
-        MongoCollection<Document> users = database.getCollection("users");
-        users.updateOne(filter, updateObject);
+        userDao.updateAccounts(u1.getId(), Arrays.asList(acc1.getId(), acc2.getId()));
+        userDao.updateAccounts(u2.getId(), Arrays.asList(acc3.getId(), acc4.getId()));
+        userDao.updateAccounts(u3.getId(), Collections.singletonList(acc5.getId()));
+
+        accountDao.updateOwner(acc1.getId(), u1.getId());
+        accountDao.updateOwner(acc2.getId(), u1.getId());
+        accountDao.updateOwner(acc3.getId(), u2.getId());
+        accountDao.updateOwner(acc4.getId(), u2.getId());
+        accountDao.updateOwner(acc5.getId(), u3.getId());
     }
 
-    private static void deleteData(MongoDatabase database) {
-        final Document filter = new Document();
-        filter.append("firstName", "Bill");
-
-        MongoCollection<Document> users = database.getCollection("users");
-        users.deleteOne(filter);
-    }
-
-    private static MongoDatabase connect(String databaseName) {
-        return getMongoClient(null).getDatabase(databaseName);
-    }
-
-    private static MongoDatabase connect(String databaseName, MongoCredential credential) {
-        return getMongoClient(credential).getDatabase(databaseName);
-    }
-
-    private static MongoClient mongoClient;
-
-    private static MongoClient getMongoClient(MongoCredential credential) {
-        if (mongoClient == null) {
-            final MongoClientOptions.Builder options = MongoClientOptions.builder();
-            mongoClient = credential == null ? new MongoClient("localhost", 27017) :
-                    new MongoClient(new ServerAddress("localhost", 27017), credential, options.build());
-        }
-
-        return mongoClient;
-    }
-
-    private static Document mapperFrom(User user) {
-        final Document document = new Document();
-        document.append("firstName", user.getFirstName());
-        document.append("lastName", user.getLastName());
-        return document;
-    }
-
-    private static User mapperTo(Document document) {
-        final User user = new User(
-                document.get("firstName", String.class),
-                document.get("lastName", String.class)
+    private void findByName() {
+        System.out.println(
+                userDao.findManyByName("FN2").toString()
         );
-        user.setId(document.get("_id", String.class));
-        return user;
+        System.out.println(
+                userDao.findManyByName("LN3").toString()
+        );
+    }
+
+    private void findByAge() {
+        System.out.println(
+                userDao.findManyByAge((short) 40)
+        );
+    }
+
+    private void findByCity() {
+        System.out.println(
+                userDao.findManyByCity("City 1")
+        );
+    }
+
+    private void findByAccounts() {
+        System.out.println(
+                userDao.findManyByAccountsCount(1)
+        );
     }
 }
